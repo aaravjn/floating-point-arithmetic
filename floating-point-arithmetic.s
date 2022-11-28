@@ -59,7 +59,10 @@ multiply:
     add r3, r3, r6
     add r4, r4, r6
     umull r5, r1, r3, r4
+    
 
+    @ renormalization
+    
     ldr r9, [r0], #4
     mov r8, #0
     if: cmp r9, r1
