@@ -1,7 +1,7 @@
 .section .data
 
-number1: .word 0x00220000
-number2: .word 0x00240000
+number1: .word 0x7fe00000       @ Please input the bigger number in number1 to avoid confusion
+number2: .word 0xffe80000
 result: .byte 0, 0, 0, 0
 extract_multiplication: .word 0x0007ffff, 0x0000007f, 0x0000003f, 0x7ff80000, 0x80000000
 extract_addition: .word 0x7ff80000, 0x0007ffff ,0x80000000, 0x7ff80000
@@ -21,20 +21,21 @@ extract_addition: .word 0x7ff80000, 0x0007ffff ,0x80000000, 0x7ff80000
 
 
 @ method of rounding-off: Truncation
+@ view the memory for final result
+
 store:
     stmfd sp!, {r0, r2, r3, lr}
     
     mov r0, #4
-    mov r2, r1
-    ldr r1, =result
-    add r1, r1, #3
+    ldr r2, =result
+    add r2, r2, #3
     loop:
-        and r3, r2, #0xff
-        strb r3, [r1], #-1
-        lsr r2, #8
+        and r3, r1, #0xff
+        strb r3, [r2], #-1
+        lsr r1, #8
         subs r0, r0, #1
         bne loop
-    strb r3, [r1]
+    strb r3, [r2]
     ldmfd sp!, {r0, r2, r3, pc}
 
 
@@ -53,6 +54,8 @@ multiply:
     ldr r9, [r0], #4
     and r3, r9, r2
     and r4, r9, r7
+    
+    @ create significand bits
 
     mov r6, #1
     lsl r6, r6, #19
@@ -86,7 +89,7 @@ multiply:
     and r4, r7, r9
     
     lsl r8, #19
-    add r3, r3, r8  @ add the exponent because of renormalisation
+    add r3, r3, r8  @ add to the exponent because of renormalisation
 
     lsl r3, #1
     lsl r4, #1
@@ -125,14 +128,14 @@ addition:
 
     @ extract the exponents
 
-    ldr r9, [r0], #4
-    and r3, r2, r9
+    ldr r9, [r0], #4 
+    and r3, r2, r9      @ Taking AND with 01111111111110000000000000000000
     and r4, r7, r9
     
-    cmp r3, r4
+    cmp r3, r4          @ Comparing which exponent is bigger
     bgt cont
 
-    mov r8, r2
+    mov r8, r2          @ Ensuring that the bigger number is always in r2, and the smaller in r7
     mov r2, r7
     mov r7, r8
     
@@ -141,27 +144,27 @@ addition:
     mov r4, r8
     
     cont:
-        mov r1, #0
-    sub r8, r3, r4
+        mov r1, #0      @ r1 will contain the final addition/substraction result      
+    sub r8, r3, r4      @ Calculating how many bits to shift the smaller number
     lsr r8, #19
-    add r1, r1, r3
+    add r1, r1, r3      @ storing the higher exponent in r1 which will be r3 always
     
     @ extract mantissa
 
     ldr r9, [r0], #4
-    and r3, r2, r9
+    and r3, r2, r9      @ taking AND with 00000000000001111111111111111111    
     and r4, r7, r9
     mov r6, #1
     lsl r6, #19
-    add r3, r3, r6
+    add r3, r3, r6      @ Adding 1 at the 20th bit to generate the significand from mantissa
     add r4, r4, r6
     
-    lsr r4, r8
+    lsr r4, r8      @ modifying mantissa of number with smaller exponent according to the bigger number
 
     @ extract signbits to change the signs of the mantissas
     
-    ldr r9, [r0], #4
-    and r5, r2, r9
+    ldr r9, [r0], #4  
+    and r5, r2, r9      @ Taking AND with 10000000000000000000000000000000
     and r6, r7, r9
 
 
@@ -169,61 +172,68 @@ addition:
     
     mov r8, #-1
     cmp r5, #0
-    beq skip1
-    mul r3, r3, r8
-    skip1:
+    beq skip_1
+    mul r3, r3, r8      @ Taking 2's compliment by multiplying with -1
+    
+    skip_1:
         cmp r6, #0
-    beq skip2
+    beq skip_2
     mul r4, r4, r8
     
-    skip2: 
+    skip_2: 
         add r5, r3, r4
     
-    @ checking whether r5 is negative, if so, making it unsinged
+    @ checking whether r5 is negative, if so, making it unsinged by multiplying with -1
     
-    and r4, r5, r9
-    add r1, r1, r4
-    cmp r5, #0
-    mov r6, #0
+    and r4, r5, r9      @ r4 will contain the msb of r5 by taking it's AND with 10000000000000000000000000000000
+    cmp r5, #0          @ checking if r5 is positive by comparing it with 0
+    mov r6, #0          @ r6 contains the sign bit of my final number
     bgt skip3
-    mul r5, r5, r8
-    mov r6, #1
+    mul r5, r5, r8      @ r8 contains -1, multiply with r5 if it is negative
+    mov r6, #1          
 
     @ renormalisation
 
     skip3:
         mov r3, #1
     lsl r3, #20
-    mov r8, #1
-    
+    mov r8, #1      @ Initiating r8 with 1, because this is the max right shift that we can do
+
     renom_loop:
-        ands r4, r3, r5
-        lsr r3, #1
-        sub r8, r8, #1
+        ands r4, r3, r5     @ Checking for the first 1 in the significand by taking AND with 00000000000010000000000000000000
+        lsr r3, #1          @ Left shifting it to check succesive bits
+        sub r8, r8, #1      @ r8 will contain the number of left/right shifts required to renormalize mantissa
         beq renom_loop
     
     lsl r3, #1
     add r8, r8, #1
 
-    bic r5, r5, r3
+    bic r5, r5, r3      @ clearing the first 1 in my significand
 
     @ modifying the exponent after renormalization
     
-    lsl r8, #19
+    lsl r8, #19     @ left shifting it to add with exponent in r8
     add r1, r1, r8
     ldr r9, [r0], #4
-    and r1, r1, r9
+    and r1, r1, r9      @ The result can be negative, thus removing the sign bit by taking AND with 01111111111110000000000000000000
 
-    cmp r8, #1
-    bmi skip4
+    cmp r8, #1          @ if r8 is positive right shift the significand by 1
+    bmi left_shift_mantissa
     lsr r5, #1
-
-    skip4:
-        @ adding mantissa to final answer
-        add r1, r1, r5
-        lsl r6, #31
-        add r1, r1, r6
+    bl final
     
+    left_shift_mantissa:    @ if r8 is negative, left shift the mantissa by r8 
+        mov r9, #-1
+        mul r8, r8, r9      @ As r8 will be negative, we need to multiply it by -1
+        lsr r8, #19
+        lsl r5, r8          
+
+    final:
+        add r1, r1, r5  @ adding mantissa to final answer
+
+    lsl r6, #31         @ Shifting it by 31 bits to add to the answer
+    add r1, r1, r6      @ adding the sign bit with r1: the final answer
+
     bl store
     ldmfd sp!, {r0, r2-r9, pc}
 
