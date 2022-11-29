@@ -26,12 +26,14 @@ extract_addition: .word 0x7ff80000, 0x0007ffff ,0x80000000, 0x7ff80000
 store:
     stmfd sp!, {r0, r2, r3, lr}
     
+    @ Storing the final answer bytewise
+
     mov r0, #4
     ldr r2, =result
     add r2, r2, #3
     loop:
-        and r3, r1, #0xff
-        strb r3, [r2], #-1
+        and r3, r1, #0xff       @ Taking AND with 00000000000000000000000011111111 to extract the last byte
+        strb r3, [r2], #-1      @ moving one memory location below
         lsr r1, #8
         subs r0, r0, #1
         bne loop
@@ -58,16 +60,16 @@ multiply:
     @ create significand bits
 
     mov r6, #1
-    lsl r6, r6, #19
-    add r3, r3, r6
+    lsl r6, r6, #19     
+    add r3, r3, r6      @ Adding with 000000000000010000000000000000000
     add r4, r4, r6
-    umull r5, r1, r3, r4
+    umull r5, r1, r3, r4    @ Giving the output in 64 bits, r1 contains the MSB and r5, the LSB
     
 
     @ renormalization
     
-    ldr r9, [r0], #4
-    mov r8, #0
+    ldr r9, [r0], #4     
+    mov r8, #0          @ If the significand is greater than 0x0000007f, right shift by 1
     if: cmp r9, r1
     bgt else
     add r8, r8, #1
@@ -75,7 +77,7 @@ multiply:
         ldr r9, [r0], #4
 
     and r1, r1, r9
-    lsl r1, #13
+    lsl r1, #13         @ Add the combined significand to r1
     lsr r5, #19
     lsr r5, r8
     lsr r1, r8
@@ -83,30 +85,23 @@ multiply:
 
     @ addition/substraction of the exponents
 
-    ldr r9, [r0], #4
+    ldr r9, [r0], #4    
 
-    and r3, r2, r9
-    and r4, r7, r9
+    and r3, r2, r9      @ Extract the exponents by taking AND with 0x7ff80000
+    and r4, r7, r9      
     
     lsl r8, #19
     add r3, r3, r8  @ add to the exponent because of renormalisation
 
-    lsl r3, #1
-    lsl r4, #1
-    lsr r3, #20
-    lsr r4, #20
-
     add r5, r3, r4
 
-    lsl r5, #19
-    and r5, r5, r9 @ for overflow purposes and to discard the last bit of the extended sign
+    and r5, r5, r9 @ discard the last bit of the extended sign
     add r1, r1, r5 
 
     @ XOR of the sign bits
     
-    ldr r9, [r0], #4
-    
-    and r3, r2, r9 
+    ldr r9, [r0], #4        @ Extract the sign bits after taking AND with 10000000000000000000000000000000
+    and r3, r2, r9          
     and r4, r7, r9
     eor r5, r3, r4
     add r1, r1, r5
