@@ -51,10 +51,10 @@ multiply:
     
     ldr r0, =extract_multiplication
 
-    @ multiply mantissa
+    @ extract mantissa
 
     ldr r9, [r0], #4
-    and r3, r9, r2
+    and r3, r9, r2          @ Take AND with 00000000000001111111111111111111 to extract mantissa
     and r4, r9, r7
     
     @ create significand bits
@@ -68,21 +68,26 @@ multiply:
 
     @ renormalization
     
+    @ Only 2 cases are possible in multiplication, either the result is already normalized or it has an extra bit after decimal point
+    @ If it has extra bit we need to remove the leading 1 and right shift the signficand by 1 and truncate the mantissa to 19 bits
+    @ Otherwise simply truncate the significand to 19 bits
+     
+
     ldr r9, [r0], #4     
     mov r8, #0          @ If the significand is greater than 0x0000007f, right shift by 1
-    if: cmp r9, r1
-    bgt else
+    if: cmp r9, r1      
+    bgt else            @ Only 2 cases possible, either to add exponent by 1, or keep it as it is
     add r8, r8, #1
-    lsl r9, #1
+    lsl r9, #1           
     else:
-        lsr r9, #1
+        lsr r9, #1      @ Take the first 6bit from LSB of the r1 register if there is no change in exponent, take first 7bits
         and r1, r1, r9
     
     lsl r1, #13      @ Add the combined significand to r1
     lsr r5, #19
-    lsr r5, r8
+    lsr r5, r8       @ This is done so that my mantissa remains within 8 bits
     lsr r1, r8
-    add r1, r1, r5
+    add r1, r1, r5      @ Add the resultant mantissa to r1
 
     @ addition/substraction of the exponents
 
@@ -94,14 +99,14 @@ multiply:
     lsl r8, #19
     add r3, r3, r8  @ add to the exponent because of renormalisation
     
-    lsl r3, #1
-    lsl r4, #1      @ Extend the signbit in the exponents by 1
-    asr r3, #1
+    lsl r3, #1      @ The exponents will have a 0 bit as the MSB, thus we need to remove it
+    lsl r4, #1      
+    asr r3, #1      @ Extend the signbit in the exponents by 1
     asr r4, #1
 
-    add r5, r3, r4
+    add r5, r3, r4      @ Add the exponents
 
-    and r5, r5, r9 @ discard the last bit of the extended sign
+    and r5, r5, r9      @ discard the first bit of the extended signbits
     add r1, r1, r5 
 
     @ XOR of the sign bits
@@ -109,7 +114,7 @@ multiply:
     ldr r9, [r0], #4        @ Extract the sign bits after taking AND with 10000000000000000000000000000000
     and r3, r2, r9          
     and r4, r7, r9
-    eor r5, r3, r4
+    eor r5, r3, r4          @ XOR of signbits
     add r1, r1, r5
     
     bl store
