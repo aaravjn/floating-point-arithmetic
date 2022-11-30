@@ -1,9 +1,9 @@
 .section .data
 
-number1: .word 0x7fe00000       @ Please input the bigger number in number1 to avoid confusion
-number2: .word 0xffe80000
+number1: .word 0x7fe80000       @ Please input the bigger number in number1 to avoid confusion
+number2: .word 0x7fe00000
 result: .byte 0, 0, 0, 0
-extract_multiplication: .word 0x0007ffff, 0x0000007f, 0x0000003f, 0x7ff80000, 0x80000000
+extract_multiplication: .word 0x0007ffff, 0x0000007f, 0x7ff80000, 0x80000000
 extract_addition: .word 0x7ff80000, 0x0007ffff ,0x80000000, 0x7ff80000
 
 .section .text
@@ -73,11 +73,12 @@ multiply:
     if: cmp r9, r1
     bgt else
     add r8, r8, #1
+    lsl r9, #1
     else:
-        ldr r9, [r0], #4
-
-    and r1, r1, r9
-    lsl r1, #13         @ Add the combined significand to r1
+        lsr r9, #1
+        and r1, r1, r9
+    
+    lsl r1, #13      @ Add the combined significand to r1
     lsr r5, #19
     lsr r5, r8
     lsr r1, r8
@@ -92,6 +93,11 @@ multiply:
     
     lsl r8, #19
     add r3, r3, r8  @ add to the exponent because of renormalisation
+    
+    lsl r3, #1
+    lsl r4, #1      @ Extend the signbit in the exponents by 1
+    asr r3, #1
+    asr r4, #1
 
     add r5, r3, r4
 
@@ -233,4 +239,4 @@ addition:
     ldmfd sp!, {r0, r2-r9, pc}
 
 _start:
-    bl addition
+    bl multiply
