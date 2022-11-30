@@ -1,7 +1,7 @@
 .section .data
 
-number1: .word 0x7fe80000       @ Please input the bigger number in number1 to avoid confusion
-number2: .word 0x7fe00000
+number1: .word 0x12345678       @ Please input the bigger number in number1 to avoid confusion
+number2: .word 0x87654321
 result: .byte 0, 0, 0, 0
 extract_multiplication: .word 0x0007ffff, 0x0000007f, 0x7ff80000, 0x80000000
 extract_addition: .word 0x7ff80000, 0x0007ffff ,0x80000000, 0x7ff80000
@@ -239,4 +239,4 @@ addition:
     ldmfd sp!, {r0, r2-r9, pc}
 
 _start:
-    bl multiply
+    bl addition
