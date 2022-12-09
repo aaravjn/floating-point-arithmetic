@@ -244,4 +244,4 @@ addition:
     ldmfd sp!, {r0, r2-r9, pc}
 
 _start:
-    bl addition
+    bl multiply
