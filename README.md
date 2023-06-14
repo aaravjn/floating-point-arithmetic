@@ -1,7 +1,7 @@
 # Floating Point Arithmetic
 
 ### Task:-
-To **Add/Substract** or **Multiply** two floating point numbers in a custom format
+To **Add/Subtract** or **Multiply** two floating point numbers in a custom format
 
 ### Format of the floating point numbers:-
 The format is very much similar to IEEE 754 format.
